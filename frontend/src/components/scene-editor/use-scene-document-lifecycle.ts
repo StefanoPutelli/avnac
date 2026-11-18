@@ -20,6 +20,8 @@ type UseSceneDocumentLifecycleArgs = {
   historyTimerRef: MutableRefObject<number | null>
   initialArtboardHeight?: number
   initialArtboardWidth?: number
+  /** Folder for a file created from inside a folder on /files. */
+  initialFolder?: string
   onReadyChange?: (ready: boolean) => void
   persistDisplayNameRef: MutableRefObject<string>
   persistId?: string
@@ -44,6 +46,7 @@ export function useSceneDocumentLifecycle({
   historyTimerRef,
   initialArtboardHeight,
   initialArtboardWidth,
+  initialFolder,
   onReadyChange,
   persistDisplayNameRef,
   persistId,
@@ -140,6 +143,7 @@ export function useSceneDocumentLifecycle({
       }
       void idbPutDocument(persistIdRef.current, snapshot, {
         name: persistDisplayNameRef.current,
+        folder: initialFolder,
       }).catch(error => {
         console.error('[avnac] autosave failed', error)
       })
@@ -147,5 +151,5 @@ export function useSceneDocumentLifecycle({
     return () => {
       if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
     }
-  }, [autosaveTimerRef, doc, persistDisplayNameRef, persistIdRef, ready])
+  }, [autosaveTimerRef, doc, initialFolder, persistDisplayNameRef, persistIdRef, ready])
 }

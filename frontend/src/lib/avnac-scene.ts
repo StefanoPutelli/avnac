@@ -72,6 +72,10 @@ export type SceneLine = SceneObjectBase & {
   strokeWidth: number
   lineStyle: ArrowLineStyle
   roundedEnds: boolean
+  /** Same quadratic curve as arrows: control point at curveT along the line, curveBulge above it. */
+  pathType: ArrowPathType
+  curveBulge: number
+  curveT: number
 }
 
 export type SceneArrow = SceneObjectBase & {
@@ -174,6 +178,56 @@ const DEFAULT_SHAPE_STROKE: BgValue = { type: 'solid', color: 'transparent' }
 const DEFAULT_TEXT_FILL: BgValue = { type: 'solid', color: '#171717' }
 const DEFAULT_LINE_STROKE: BgValue = { type: 'solid', color: '#262626' }
 const DEFAULT_BG: BgValue = { type: 'solid', color: '#ffffff' }
+
+/** Ends of the bendable stroke in the object's own box (for arrows: tail to where the head starts). */
+export function curveSpan(obj: SceneLine | SceneArrow): { x1: number; x2: number; y: number } {
+  const y = obj.height / 2
+  if (obj.type === 'line') {
+    return { x1: obj.strokeWidth / 2, x2: obj.width - obj.strokeWidth / 2, y }
+  }
+  const x1 = obj.strokeWidth / 2
+  const tipX = obj.width - obj.strokeWidth * 0.6
+  return { x1, x2: Math.max(x1 + 1, tipX - obj.strokeWidth * 3.2 * obj.headSize), y }
+}
+
+/** Quadratic control point: curveT along the stroke, curveBulge above it. */
+export function curveControl(obj: SceneLine | SceneArrow): { x: number; y: number } {
+  const { x1, x2, y } = curveSpan(obj)
+  return { x: x1 + (x2 - x1) * obj.curveT, y: y - obj.curveBulge }
+}
+
+/** Where the curve-bending handle sits: the point of the curve halfway along it (t = 0.5). */
+export function curveHandlePoint(obj: SceneLine | SceneArrow): { x: number; y: number } {
+  const { x1, x2, y } = curveSpan(obj)
+  const c = curveControl(obj)
+  return { x: (x1 + x2) / 4 + c.x / 2, y: y / 2 + c.y / 2 }
+}
+
+/** Curve that passes through `point` (in the object's box) halfway along: the handle follows the pointer. */
+export function curveFromHandle(
+  obj: SceneLine | SceneArrow,
+  point: { x: number; y: number },
+): { curveBulge: number; curveT: number } {
+  const { x1, x2, y } = curveSpan(obj)
+  const cx = 2 * point.x - (x1 + x2) / 2
+  const cy = 2 * point.y - y
+  const curveT = x2 > x1 ? (cx - x1) / (x2 - x1) : 0.5
+  return { curveBulge: Math.round(y - cy), curveT: Math.max(0.1, Math.min(0.9, curveT)) }
+}
+
+/** End points and (when curved) the quadratic control point of a line, in its own box. */
+export function lineGeometry(obj: SceneLine) {
+  const { x1, x2, y } = curveSpan(obj)
+  const control = obj.pathType === 'curved' ? curveControl(obj) : null
+  return { x1, x2, y, control }
+}
+
+export function linePathD(obj: SceneLine): string {
+  const { x1, x2, y, control } = lineGeometry(obj)
+  return control
+    ? `M ${x1} ${y} Q ${control.x} ${control.y} ${x2} ${y}`
+    : `M ${x1} ${y} L ${x2} ${y}`
+}
 
 function clampSize(n: number, min = 1, max = 16000): number {
   if (!Number.isFinite(n)) return min
@@ -406,12 +460,18 @@ function parseSceneObject(raw: unknown): SceneObject | null {
     }
   }
   if (type === 'line') {
+    const base = baseObjectFromUnknown(obj, 'line')
     return {
-      ...baseObjectFromUnknown(obj, 'line'),
+      ...base,
       stroke: parseBgValue(obj.stroke, DEFAULT_LINE_STROKE),
       strokeWidth: typeof obj.strokeWidth === 'number' ? Math.max(1, obj.strokeWidth) : 4,
       lineStyle: obj.lineStyle === 'dashed' || obj.lineStyle === 'dotted' ? obj.lineStyle : 'solid',
       roundedEnds: obj.roundedEnds !== false,
+      pathType: obj.pathType === 'curved' ? 'curved' : 'straight',
+      // Lines saved before curves existed get the same default bend as a new arrow.
+      curveBulge:
+        typeof obj.curveBulge === 'number' ? obj.curveBulge : Math.round(base.height * 0.4),
+      curveT: typeof obj.curveT === 'number' ? Math.max(0.1, Math.min(0.9, obj.curveT)) : 0.5,
     }
   }
   if (type === 'arrow') {
@@ -599,6 +659,9 @@ function migrateLegacyObject(raw: unknown): SceneObject | null {
               ? meta.arrowLineStyle
               : 'solid',
           roundedEnds: meta.arrowRoundedEnds !== false,
+          pathType: meta.arrowPathType === 'curved' ? 'curved' : 'straight',
+          curveBulge: curveBulge || Math.round(height * 0.4),
+          curveT: 0.5,
         }
       }
       return {
@@ -1032,6 +1095,7 @@ export function sceneObjectToShapeMeta(obj: SceneObject): AvnacShapeMeta | null 
         arrowStrokeWidth: obj.strokeWidth,
         arrowLineStyle: obj.lineStyle,
         arrowRoundedEnds: obj.roundedEnds,
+        arrowPathType: obj.pathType,
       }
     case 'arrow':
       return {

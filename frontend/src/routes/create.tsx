@@ -1,7 +1,6 @@
 import { Home05Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { usePostHog } from 'posthog-js/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import DocumentMigrationDialog from '../components/document-migration-dialog'
 import EditorExportMenu from '../components/editor-export-menu'
@@ -18,6 +17,8 @@ type CreateSearch = {
   id?: string
   w?: number
   h?: number
+  /** New files only: the /files folder they were created from. */
+  folder?: string
 }
 
 function parseSearchDimension(v: unknown): number | undefined {
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/create')({
       id: typeof id === 'string' && id.length > 0 ? id : undefined,
       w: parseSearchDimension(raw.w),
       h: parseSearchDimension(raw.h),
+      folder: typeof raw.folder === 'string' && raw.folder ? raw.folder : undefined,
     }
   },
   component: CreatePage,
@@ -51,7 +53,6 @@ function CreatePage() {
   const initialW = search.w
   const initialH = search.h
   const navigate = Route.useNavigate()
-  const posthog = usePostHog()
   const editorUnsupported = useEditorUnsupportedOnThisDevice()
 
   useLayoutEffect(() => {
@@ -63,10 +64,11 @@ function CreatePage() {
         id: crypto.randomUUID(),
         w: initialW,
         h: initialH,
+        folder: search.folder,
       },
       replace: true,
     })
-  }, [editorUnsupported, id, initialW, initialH, navigate])
+  }, [editorUnsupported, id, initialW, initialH, search.folder, navigate])
 
   useEffect(() => {
     if (!id) return
@@ -87,23 +89,11 @@ function CreatePage() {
     setDocumentTitle(t)
     if (id) {
       void idbSetDocumentName(id, t)
-      posthog.capture('document_renamed', { file_id: id, new_name: t })
     }
   }
 
   const legacyBlocked = documentStorageKind === 'legacy'
   const loadingDocument = documentStorageKind === 'loading'
-
-  useEffect(() => {
-    if (!legacyBlocked || !id) return
-    posthog.capture('legacy_conversion_prompt_opened', {
-      surface: 'create_page',
-      trigger_source: 'direct_open',
-      file_count: 1,
-      file_ids: [id],
-      open_after_conversion: false,
-    })
-  }, [id, legacyBlocked, posthog])
 
   if (editorUnsupported) {
     return (
@@ -214,6 +204,7 @@ function CreatePage() {
             onReadyChange={setEditorReady}
             initialArtboardWidth={initialW}
             initialArtboardHeight={initialH}
+            initialFolder={search.folder}
           />
         )}
       </div>
@@ -226,46 +217,16 @@ function CreatePage() {
         busy={migrationBusy}
         onClose={() => {
           if (migrationBusy) return
-          posthog.capture('legacy_conversion_cancelled', {
-            surface: 'create_page',
-            trigger_source: 'direct_open',
-            file_count: 1,
-            file_ids: [id],
-            open_after_conversion: false,
-          })
           void navigate({ to: '/files' })
         }}
         onConfirm={() => {
           if (migrationBusy) return
-          posthog.capture('legacy_conversion_started', {
-            surface: 'create_page',
-            trigger_source: 'direct_open',
-            file_count: 1,
-            file_ids: [id],
-            open_after_conversion: false,
-          })
           setMigrationBusy(true)
           void (async () => {
             try {
               await idbMigrateLegacyDocument(id)
-              posthog.capture('legacy_conversion_completed', {
-                surface: 'create_page',
-                trigger_source: 'direct_open',
-                file_count: 1,
-                file_ids: [id],
-                open_after_conversion: false,
-                opened_file_id: id,
-              })
               setDocumentStorageKind('current')
             } catch (err) {
-              posthog.capture('legacy_conversion_failed', {
-                surface: 'create_page',
-                trigger_source: 'direct_open',
-                file_count: 1,
-                file_ids: [id],
-                open_after_conversion: false,
-              })
-              posthog.captureException(err)
               console.error('[avnac] legacy migration failed', err)
             } finally {
               setMigrationBusy(false)

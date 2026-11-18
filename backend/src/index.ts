@@ -3,28 +3,24 @@ import './load-env'
 import { cors } from '@elysiajs/cors'
 import { node } from '@elysiajs/node'
 import { Elysia } from 'elysia'
-import { auth } from './auth'
-import { env } from './config/env'
-import { sql } from './db'
+import { auth, ensureAdmin } from './auth'
+import { corsOrigins, env } from './config/env'
+import { migrate, sql } from './db'
 import { HttpError } from './lib/http'
 import { authPlugin } from './plugins/auth'
 import { documentsRoutes } from './routes/documents'
+import { keysRoutes } from './routes/keys'
 import { mediaRoutes } from './routes/media'
 import { sponsorRoutes } from './routes/sponsor'
 import { unsplashRoutes } from './routes/unsplash'
 
-function corsOrigins(value: string): string | string[] {
-  const parts = value
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean)
-  return parts.length <= 1 ? (parts[0] ?? value) : parts
-}
+await migrate()
+await ensureAdmin()
 
 const app = new Elysia({ adapter: node() })
   .use(
     cors({
-      origin: corsOrigins(env.CORS_ORIGIN),
+      origin: corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
@@ -75,6 +71,7 @@ const app = new Elysia({ adapter: node() })
     }
   })
   .use(documentsRoutes)
+  .use(keysRoutes)
   .use(mediaRoutes)
   .use(sponsorRoutes)
   .use(unsplashRoutes)

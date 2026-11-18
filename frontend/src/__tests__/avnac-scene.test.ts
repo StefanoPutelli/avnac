@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   distributeGroupChildrenEvenly,
   getAvnacDocumentStorageKind,
+  curveFromHandle,
+  curveHandlePoint,
   getGroupChildSpacing,
+  lineGeometry,
+  linePathD,
   parseAvnacDocument,
   type SceneGroup,
   type SceneObject,
@@ -356,5 +360,80 @@ describe('group child spacing', () => {
     expect(next.children.map(child => child.y)).toEqual([0, 22, 54])
     expect(next.height).toBe(59)
     expect(getGroupChildSpacing(next, 'vertical')).toBe(12)
+  })
+})
+
+describe('curved lines', () => {
+  const savedLine = {
+    id: 'l1',
+    type: 'line',
+    x: 0,
+    y: 0,
+    width: 200,
+    height: 50,
+    stroke: solidBlack,
+    strokeWidth: 4,
+    lineStyle: 'solid',
+    roundedEnds: true,
+  }
+  const docWith = (line: object) =>
+    parseAvnacDocument({
+      v: 2,
+      artboard: { width: 400, height: 400 },
+      bg: solidBlack,
+      objects: [line],
+    })
+
+  it('lines saved before curves existed load straight, with a default bend ready', () => {
+    const line = docWith(savedLine)?.objects[0]
+    expect(line).toMatchObject({ type: 'line', pathType: 'straight', curveBulge: 20, curveT: 0.5 })
+  })
+
+  it('a curved line keeps its curve and draws a quadratic path', () => {
+    const line = docWith({ ...savedLine, pathType: 'curved', curveBulge: 10 })?.objects[0]
+    if (line?.type !== 'line') throw new Error('expected a line')
+    expect(line.pathType).toBe('curved')
+    expect(lineGeometry(line).control).toEqual({ x: 100, y: 15 })
+    expect(linePathD(line)).toBe('M 2 25 Q 100 15 198 25')
+    expect(linePathD({ ...line, pathType: 'straight' })).toBe('M 2 25 L 198 25')
+  })
+
+  it('the bend handle sits on the curve and dragging it reshapes the curve under the pointer', () => {
+    const line = docWith({ ...savedLine, pathType: 'curved', curveBulge: 10 })?.objects[0]
+    if (line?.type !== 'line') throw new Error('expected a line')
+    // Halfway along the curve: half the bulge above the line.
+    expect(curveHandlePoint(line)).toEqual({ x: 100, y: 20 })
+    expect(curveFromHandle(line, curveHandlePoint(line))).toEqual({ curveBulge: 10, curveT: 0.5 })
+
+    const higher = { ...line, ...curveFromHandle(line, { x: 80, y: -15 }) }
+    expect(higher.curveBulge).toBe(80)
+    expect(curveHandlePoint(higher).x).toBeCloseTo(80)
+    expect(curveHandlePoint(higher).y).toBeCloseTo(-15)
+
+    expect(curveFromHandle(line, { x: 100, y: 45 }).curveBulge).toBe(-40)
+    expect(curveFromHandle(line, { x: 1000, y: 0 }).curveT).toBe(0.9)
+    expect(curveFromHandle(line, { x: -1000, y: 0 }).curveT).toBe(0.1)
+  })
+
+  it('arrows bend the same way, along the shaft', () => {
+    const arrow = parseAvnacDocument({
+      v: 2,
+      artboard: { width: 400, height: 400 },
+      bg: solidBlack,
+      objects: [
+        {
+          ...savedLine,
+          type: 'arrow',
+          headSize: 1,
+          pathType: 'curved',
+          curveBulge: 12,
+          curveT: 0.3,
+        },
+      ],
+    })?.objects[0]
+    if (arrow?.type !== 'arrow') throw new Error('expected an arrow')
+    const round = curveFromHandle(arrow, curveHandlePoint(arrow))
+    expect(round.curveBulge).toBe(12)
+    expect(round.curveT).toBeCloseTo(0.3)
   })
 })

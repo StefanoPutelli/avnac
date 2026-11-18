@@ -1,16 +1,23 @@
 import {
+  CloudUploadIcon,
   Copy01Icon,
   Delete02Icon,
   Download01Icon,
+  Folder01Icon,
+  FolderExportIcon,
   LinkSquare02Icon,
   MoreVerticalSquare01Icon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { usePostHog } from 'posthog-js/react'
 import { useEffect, useRef, useState } from 'react'
-import { type AvnacEditorIdbListItem, idbDuplicateDocument } from '../lib/avnac-editor-idb'
+import {
+  type AvnacEditorIdbListItem,
+  idbDuplicateDocument,
+  idbUploadLocalDocuments,
+} from '../lib/avnac-editor-idb'
 import { downloadAvnacJsonForId } from '../lib/avnac-files-export'
+import { FILE_DRAG_TYPE } from '../lib/avnac-files-view'
 import FileGridPreview from './file-grid-preview'
 
 type FileGridCardProps = {
@@ -20,7 +27,10 @@ type FileGridCardProps = {
   selected: boolean
   onToggleSelect: (id: string) => void
   onRequestDelete: (id: string) => void
-  onRequestOpen: (row: AvnacEditorIdbListItem, source: 'thumbnail' | 'title' | 'menu') => void
+  onRequestOpen: (row: AvnacEditorIdbListItem) => void
+  onRequestMove: (id: string) => void
+  /** Search results mix folders, so say which one the file is in. */
+  showFolder: boolean
 }
 
 export default function FileGridCard({
@@ -31,10 +41,12 @@ export default function FileGridCard({
   onToggleSelect,
   onRequestDelete,
   onRequestOpen,
+  onRequestMove,
+  showFolder,
 }: FileGridCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const posthog = usePostHog()
 
   useEffect(() => {
     if (!menuOpen) return
@@ -56,10 +68,9 @@ export default function FileGridCard({
   const openInNewTab = () => {
     setMenuOpen(false)
     if (row.isLegacy) {
-      onRequestOpen(row, 'menu')
+      onRequestOpen(row)
       return
     }
-    posthog.capture('file_opened', { file_id: row.id, method: 'new_tab' })
     const u = new URL('/create', window.location.origin)
     u.searchParams.set('id', row.id)
     window.open(u.toString(), '_blank', 'noopener,noreferrer')
@@ -71,17 +82,22 @@ export default function FileGridCard({
       try {
         const newId = await idbDuplicateDocument(row.id)
         if (newId) {
-          posthog.capture('file_duplicated', {
-            file_id: row.id,
-            new_file_id: newId,
-          })
           onListChange()
         }
       } catch (err) {
-        posthog.captureException(err)
         console.error('[avnac] duplicate failed', err)
       }
     })()
+  }
+
+  const upload = () => {
+    setUploading(true)
+    void idbUploadLocalDocuments([row.id])
+      .catch(err => console.error('[avnac] upload failed', err))
+      .finally(() => {
+        setUploading(false)
+        onListChange()
+      })
   }
 
   const downloadJson = () => {
@@ -89,12 +105,15 @@ export default function FileGridCard({
     void (async () => {
       try {
         await downloadAvnacJsonForId(row.id)
-        posthog.capture('file_downloaded', { file_id: row.id, format: 'json' })
       } catch (err) {
-        posthog.captureException(err)
         console.error('[avnac] download failed', err)
       }
     })()
+  }
+
+  const moveToFolder = () => {
+    setMenuOpen(false)
+    onRequestMove(row.id)
   }
 
   const moveToTrash = () => {
@@ -123,7 +142,14 @@ export default function FileGridCard({
     'block w-full border-0 bg-transparent p-0 text-left text-inherit transition-colors hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text)]'
 
   return (
-    <li className="min-w-0">
+    <li
+      className="min-w-0"
+      draggable
+      onDragStart={e => {
+        e.dataTransfer.setData(FILE_DRAG_TYPE, row.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+    >
       <div
         ref={wrapRef}
         className="group flex h-full flex-col rounded-2xl border border-[var(--line)] bg-white/50 backdrop-blur-md transition-[border-color,background-color] duration-200 hover:border-black/[0.14] hover:bg-white/72"
@@ -158,11 +184,7 @@ export default function FileGridCard({
               </span>
             </label>
           </div>
-          <button
-            type="button"
-            className={openEditorClass}
-            onClick={() => onRequestOpen(row, 'thumbnail')}
-          >
+          <button type="button" className={openEditorClass} onClick={() => onRequestOpen(row)}>
             <div
               className={[
                 'relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-[var(--surface-subtle)] transition-shadow duration-150',
@@ -183,6 +205,26 @@ export default function FileGridCard({
               ) : null}
             </div>
           </button>
+          {row.local ? (
+            <div className="absolute bottom-5 left-5 z-10 flex items-center gap-1.5 sm:bottom-6 sm:left-6">
+              <span
+                title="Only in this browser, not in your account"
+                className="rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
+              >
+                Local
+              </span>
+              <button
+                type="button"
+                disabled={uploading}
+                title="Upload this file to your account"
+                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.1] bg-white/90 px-2.5 py-1 text-[12px] font-medium text-[var(--text)] transition-colors hover:bg-white disabled:opacity-60"
+                onClick={upload}
+              >
+                <HugeiconsIcon icon={CloudUploadIcon} size={14} strokeWidth={1.8} />
+                {uploading ? 'Uploading…' : 'Upload'}
+              </button>
+            </div>
+          ) : null}
           <div className="absolute right-4 top-4 z-10">
             <button
               type="button"
@@ -249,6 +291,20 @@ export default function FileGridCard({
                 <button
                   type="button"
                   role="menuitem"
+                  className={menuItemClass}
+                  onClick={() => moveToFolder()}
+                >
+                  <HugeiconsIcon
+                    icon={FolderExportIcon}
+                    size={18}
+                    strokeWidth={1.65}
+                    className="shrink-0 text-[var(--text-muted)]"
+                  />
+                  Move to folder…
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   className={`${menuItemClass} text-red-600 hover:bg-red-50`}
                   onClick={() => moveToTrash()}
                 >
@@ -267,7 +323,7 @@ export default function FileGridCard({
         <button
           type="button"
           className={`${openEditorClass} flex min-h-0 flex-1 flex-col gap-2 border-t border-black/[0.05] px-4 pb-4 pt-3`}
-          onClick={() => onRequestOpen(row, 'title')}
+          onClick={() => onRequestOpen(row)}
         >
           <div className="truncate text-[15px] font-medium leading-snug tracking-[-0.01em] text-[var(--text)]">
             {row.name}
@@ -275,6 +331,12 @@ export default function FileGridCard({
           <div className="text-[13px] leading-normal tabular-nums text-[var(--text-muted)]">
             {row.artboardWidth} × {row.artboardHeight}px
           </div>
+          {showFolder && row.folder ? (
+            <div className="flex min-w-0 items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+              <HugeiconsIcon icon={Folder01Icon} size={14} strokeWidth={1.7} className="shrink-0" />
+              <span className="truncate">{row.folder}</span>
+            </div>
+          ) : null}
           <time
             dateTime={new Date(row.updatedAt).toISOString()}
             className="mt-auto text-[12px] tabular-nums text-[var(--text-subtle)]"

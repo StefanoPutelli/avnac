@@ -204,6 +204,9 @@ export function useAiDesignController({
           strokeWidth: spec.strokeWidth ?? 4,
           lineStyle: 'solid',
           roundedEnds: true,
+          pathType: 'straight',
+          curveBulge: Math.round(height * 0.4),
+          curveT: 0.5,
         }
         addObjects([obj])
         return { id: obj.id }

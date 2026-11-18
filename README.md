@@ -105,13 +105,6 @@ Legacy migration behavior currently includes:
 - a conversion modal when a user clicks an old file
 - a blocking conversion overlay if a user opens or refreshes an old editor URL directly
 
-## Analytics
-
-Frontend analytics use PostHog.
-
-- Root provider setup lives in `frontend/src/routes/__root.tsx`
-- The tracked event catalog is documented in `frontend/.posthog-events.json`
-
 ## Local Development
 
 ### Frontend

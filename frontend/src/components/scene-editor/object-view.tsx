@@ -7,7 +7,7 @@ import {
 } from 'react'
 
 import { iconSvgNodeAttrs, sceneIconPaintValue } from '../../lib/avnac-icon'
-import type { SceneArrow, SceneObject, SceneText } from '../../lib/avnac-scene'
+import { linePathD, type SceneArrow, type SceneObject, type SceneText } from '../../lib/avnac-scene'
 import {
   blurPxFromPct,
   layoutSceneText,
@@ -553,11 +553,9 @@ export function SceneObjectView({
       >
         <svg width={obj.width} height={obj.height} style={shapeSvgStyle}>
           <defs>{svgGradientDef(strokeId, obj.stroke)}</defs>
-          <line
-            x1={obj.strokeWidth / 2}
-            y1={obj.height / 2}
-            x2={obj.width - obj.strokeWidth / 2}
-            y2={obj.height / 2}
+          <path
+            d={linePathD(obj)}
+            fill="none"
             stroke={svgPaintUrl(strokeId, obj.stroke)}
             strokeWidth={obj.strokeWidth}
             strokeLinecap={obj.roundedEnds ? 'round' : 'square'}

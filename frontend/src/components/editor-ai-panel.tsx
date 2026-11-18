@@ -14,7 +14,6 @@ import {
   useTambo,
   useTamboThreadInput,
 } from '@tambo-ai/react'
-import { usePostHog } from 'posthog-js/react'
 import {
   type ChangeEvent,
   type FormEvent,
@@ -287,7 +286,6 @@ function MagicChat({ quickPrompts }: { quickPrompts: string[] }) {
   const [error, setError] = useState<string | null>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
-  const posthog = usePostHog()
 
   const displayMessages = useMemo(() => groupMessagesForDisplay(messages), [messages])
 
@@ -302,14 +300,10 @@ function MagicChat({ quickPrompts }: { quickPrompts: string[] }) {
     const hasText = value.trim().length > 0
     if ((!hasText && stagedImages.length === 0) || isPending || isStreaming) return
     setError(null)
-    posthog.capture('ai_prompt_submitted', {
-      prompt_length: value.trim().length,
-      image_count: stagedImages.length,
-    })
     try {
       await submit()
     } catch (err) {
-      posthog.captureException(err)
+      console.error(err)
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     }
   }

@@ -1,0 +1,1 @@
+ALTER TABLE "document" ADD COLUMN IF NOT EXISTS "name" text DEFAULT 'Untitled' NOT NULL;

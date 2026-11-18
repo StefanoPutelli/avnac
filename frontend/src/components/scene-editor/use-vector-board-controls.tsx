@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react'
 
+import { idbMarkDirty } from '../../lib/avnac-editor-idb'
 import type { AvnacDocument, SceneObject } from '../../lib/avnac-scene'
 import {
   emptyVectorBoardDocument,
@@ -94,12 +95,12 @@ export function useVectorBoardControls({
 
   useEffect(() => {
     if (!persistId || !ready) return
-    saveVectorBoards(persistId, boards)
+    if (saveVectorBoards(persistId, boards)) void idbMarkDirty(persistId)
   }, [boards, persistId, ready])
 
   useEffect(() => {
     if (!persistId || !ready) return
-    saveVectorBoardDocs(persistId, boardDocs)
+    if (saveVectorBoardDocs(persistId, boardDocs)) void idbMarkDirty(persistId)
   }, [boardDocs, persistId, ready])
 
   const createVectorBoard = useCallback(() => {

@@ -2,6 +2,7 @@ import { type BgValue, bgValueToCss } from '../components/background-popover'
 import type { AvnacDocument, SceneArrow, SceneLine, SceneObject, SceneText } from './avnac-document'
 import { iconSvgToDataUrl } from './avnac-icon'
 import { getExportSafeImageUrl } from './avnac-image-proxy'
+import { lineGeometry } from './avnac-scene'
 import { shadowColorString } from './avnac-shadow'
 import {
   flattenVisibleStrokes,
@@ -664,9 +665,13 @@ async function drawSceneObject(
       ctx.lineWidth = obj.strokeWidth
       ctx.lineCap = obj.roundedEnds ? 'round' : 'butt'
       applyDash(ctx, obj)
-      ctx.beginPath()
-      ctx.moveTo(obj.strokeWidth / 2, obj.height / 2)
-      ctx.lineTo(obj.width - obj.strokeWidth / 2, obj.height / 2)
+      {
+        const { x1, x2, y, control } = lineGeometry(obj)
+        ctx.beginPath()
+        ctx.moveTo(x1, y)
+        if (control) ctx.quadraticCurveTo(control.x, control.y, x2, y)
+        else ctx.lineTo(x2, y)
+      }
       ctx.stroke()
       ctx.setLineDash([])
       break

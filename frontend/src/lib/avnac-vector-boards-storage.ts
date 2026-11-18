@@ -32,12 +32,20 @@ export function loadVectorBoards(persistId: string): AvnacVectorBoardMeta[] {
   }
 }
 
-export function saveVectorBoards(persistId: string, boards: AvnacVectorBoardMeta[]) {
+/** Returns true if the stored value changed (a missing key counts as `empty`). */
+function setIfChanged(key: string, value: string, empty: string): boolean {
   try {
-    localStorage.setItem(keyFor(persistId), JSON.stringify(boards))
+    if ((localStorage.getItem(key) ?? empty) === value) return false
+    localStorage.setItem(key, value)
+    return true
   } catch {
     /* ignore quota / private mode */
+    return false
   }
+}
+
+export function saveVectorBoards(persistId: string, boards: AvnacVectorBoardMeta[]): boolean {
+  return setIfChanged(keyFor(persistId), JSON.stringify(boards), '[]')
 }
 
 export function loadVectorBoardDocs(persistId: string): Record<string, VectorBoardDocument> {
@@ -57,12 +65,11 @@ export function loadVectorBoardDocs(persistId: string): Record<string, VectorBoa
   }
 }
 
-export function saveVectorBoardDocs(persistId: string, docs: Record<string, VectorBoardDocument>) {
-  try {
-    localStorage.setItem(docsKeyFor(persistId), JSON.stringify(docs))
-  } catch {
-    /* ignore */
-  }
+export function saveVectorBoardDocs(
+  persistId: string,
+  docs: Record<string, VectorBoardDocument>,
+): boolean {
+  return setIfChanged(docsKeyFor(persistId), JSON.stringify(docs), '{}')
 }
 
 export function mergeVectorBoardDocsForMeta(
