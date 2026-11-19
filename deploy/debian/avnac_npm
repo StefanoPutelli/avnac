@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+case "${1-}" in
+  backend|frontend) package=$1; shift ;;
+  *) echo 'Usage: avnac_npm backend|frontend <npm arguments>' >&2; exit 2 ;;
+esac
+
+exec /usr/sbin/runuser -u avnac -- /usr/bin/env PATH=/opt/avnac-node/bin:/usr/bin:/bin \
+  /opt/avnac-node/bin/npm --prefix "/opt/avnac/app/$package" "$@"

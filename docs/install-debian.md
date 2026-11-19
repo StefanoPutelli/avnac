@@ -59,14 +59,15 @@ install -d -o root -g root -m 0700 /etc/avnac
 install -d -o root -g root -m 0755 /var/www/avnac
 ```
 
-Define this helper for installation and updates:
+Install the helper once. It remains available in new shells and SSH sessions; use it as root or with `sudo avnac_npm ...`.
 
 ```bash
-avnac_npm() {
-  runuser -u avnac -- env PATH=/opt/avnac-node/bin:/usr/bin:/bin \
-    /opt/avnac-node/bin/npm --prefix "/opt/avnac/app/$1" "${@:2}"
-}
+install -o root -g root -m 0755 \
+  /opt/avnac/app/deploy/debian/avnac_npm /usr/local/bin/avnac_npm
+unset -f avnac_npm
 ```
+
+`unset -f` removes the old temporary function from the current shell, if present.
 
 ## 3. PostgreSQL
 
@@ -189,7 +190,7 @@ Keep `ADMIN_EMAIL`. Editing `ADMIN_PASSWORD` does not change an existing account
 
 ## Updates
 
-Back up first. Define `avnac_npm` from step 2 if using a new shell.
+Back up first. The `avnac_npm` command installed in step 2 also works in new SSH sessions.
 
 ```bash
 runuser -u avnac -- git -C /opt/avnac/app pull --ff-only
