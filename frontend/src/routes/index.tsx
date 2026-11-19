@@ -550,6 +550,7 @@ function Landing() {
               </button>
               <AccountMenu
                 signInButtonClassName={heroPrimaryButtonClass}
+                signedInButtonClassName={`${heroPrimaryButtonClass} max-w-full min-w-0 disabled:cursor-default disabled:bg-black/[0.06] disabled:text-[var(--text-muted)]`}
                 onChange={() => {
                   void navigate({ to: "/files" });
                 }}

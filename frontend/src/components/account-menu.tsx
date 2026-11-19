@@ -8,11 +8,14 @@ type AccountMenuProps = {
   /** Called after sign in / sign out, once local files reflect the new account. */
   onChange: () => void
   signInButtonClassName?: string
+  /** Show only a disabled email button instead of account actions. */
+  signedInButtonClassName?: string
 }
 
 export default function AccountMenu({
   onChange,
   signInButtonClassName = secondaryButtonClass,
+  signedInButtonClassName,
 }: AccountMenuProps) {
   const user = useSyncExternalStore(subscribeCloudUser, getCloudUser)
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -33,6 +36,13 @@ export default function AccountMenu({
     })
 
   if (user) {
+    if (signedInButtonClassName) {
+      return (
+        <button type="button" disabled className={signedInButtonClassName} title={user.email}>
+          <span className="truncate">{user.email}</span>
+        </button>
+      )
+    }
     return (
       <div className="flex min-w-0 items-center gap-3">
         <span className="hidden max-w-[14rem] truncate text-[14px] text-[var(--text-muted)] sm:inline">
