@@ -13,7 +13,8 @@
     "format": "biome format --write .",
     "format:check": "biome check --linter-enabled=false --assist-enabled=false .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test": "node --import tsx --test src/__tests__/*.test.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
