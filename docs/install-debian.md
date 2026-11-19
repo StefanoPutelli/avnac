@@ -14,7 +14,7 @@ Browser -- HTTPS --> Nginx
 
 ```bash
 apt-get update
-apt-get install -y ca-certificates curl xz-utils git openssl rsync build-essential postgresql postgresql-client nginx certbot python3-certbot-nginx
+apt-get install -y ca-certificates curl xz-utils git openssl rsync build-essential postgresql postgresql-client nginx
 systemctl enable --now postgresql nginx
 ```
 
@@ -64,16 +64,32 @@ avnac_npm() {
 
 ## 3. PostgreSQL
 
-Create the role and database, then set a password. Reuse them if they already exist.
+First, generate a database password and save the output:
+
+```bash
+openssl rand -hex 32
+```
+
+Create the role and database. Reuse them if they already exist.
 
 ```bash
 runuser -u postgres -- createuser --no-superuser --no-createdb --no-createrole avnac
 runuser -u postgres -- createdb --owner=avnac avnac
+```
+
+Set the password:
+
+```bash
 runuser -u postgres -- psql -c '\password avnac'
+```
+
+Test the connection using the same generated password:
+
+```bash
 psql -h 127.0.0.1 -U avnac -d avnac -W -c 'SELECT current_user;'
 ```
 
-Use a random hex password (`openssl rand -hex 32`) to avoid URL escaping. Keep PostgreSQL local with password authentication.
+Use this password in `DATABASE_URL` in step 4. Keep PostgreSQL local with password authentication.
 
 ## 4. Configuration
 
@@ -120,20 +136,18 @@ curl --fail http://127.0.0.1:3001/health
 
 Migrations and administrator creation run automatically on startup. The frontend uses `/api`; leave `VITE_PUBLIC_API_URL` unset. Any `VITE_*` values are public and require rebuilding the frontend.
 
-## 6. Nginx and HTTPS
+## 6. Nginx
 
 ```bash
 install -o root -g root -m 0644 \
   /opt/avnac/app/deploy/debian/nginx.conf /etc/nginx/sites-available/avnac
 sensible-editor /etc/nginx/sites-available/avnac
-# Replace the domain in the configuration and Certbot command.
+# Replace the domain in the configuration.
 ln -s /etc/nginx/sites-available/avnac /etc/nginx/sites-enabled/avnac
 nginx -t && systemctl reload nginx
-certbot --nginx -d avnac.example.com --redirect
-certbot renew --dry-run
 ```
 
-Point DNS to Nginx and allow ports 80/443. HTTPS is required for browser encryption. For an existing HTTPS virtual host, merge the template's root and locations instead.
+The template serves HTTP. Configure HTTPS separately on your public reverse proxy, either here or on another machine. Browser encryption requires HTTPS. Point DNS to the public proxy and use its HTTPS origin for `BETTER_AUTH_URL` and `CORS_ORIGIN`.
 
 Keep the trailing slash in `proxy_pass http://127.0.0.1:3001/;` to strip `/api`. Do not cache API responses.
 

@@ -2,6 +2,12 @@
 
 Avnac is a browser-first design editor for posters, layouts, social graphics, and other canvas-based compositions.
 
+## Install this fork
+
+**[Debian installation without Docker](docs/install-debian.md)** — PostgreSQL, systemd, and Nginx. Configure public HTTPS separately on your reverse proxy. Configuration templates are in [`deploy/debian/`](deploy/debian/).
+
+Use this guide to install the fork. The Docker files are retained for reference: they build this checkout, not an upstream image.
+
 ## Why this fork exists
 
 This fork adapts Avnac for private, self-hosted use, with control over accounts and where designs are stored. It keeps browser-local editing and adds:
@@ -11,7 +17,7 @@ This fork adapts Avnac for private, self-hosted use, with control over accounts 
 - Browser-side encryption of uploaded designs, names, and folder names, with administrator-assisted key recovery
 - File folders, drag-and-drop organization, search, and sorting
 - Curved lines in the editor and image exports
-- Docker Compose deployment with PostgreSQL, the backend, and an Nginx frontend
+- Native Debian installation with PostgreSQL, systemd, and Nginx
 
 The fork also removes PostHog analytics and the paused background-removal feature.
 
@@ -121,10 +127,6 @@ Legacy migration behavior currently includes:
 - a migrate-all prompt on the files page when old files are present
 - a conversion modal when a user clicks an old file
 - a blocking conversion overlay if a user opens or refreshes an old editor URL directly
-
-## Installation on Debian without Docker
-
-Follow the [Debian install guide](docs/install-debian.md). Configuration templates are in [`deploy/debian/`](deploy/debian/).
 
 ## Local Development
 
