@@ -21,26 +21,32 @@ systemctl enable --now postgresql nginx
 Then, install Node.js **24 LTS** from their official binaries:
 
 ```bash
-AVNAC_NODE_VERSION=24.22.3
-case "$(dpkg --print-architecture)" in
-  amd64) AVNAC_NODE_ARCH=x64 ;;
-  arm64) AVNAC_NODE_ARCH=arm64 ;;
-esac
-AVNAC_NODE_ARCHIVE="node-v${AVNAC_NODE_VERSION}-linux-${AVNAC_NODE_ARCH}"
-AVNAC_NODE_TMP=$(mktemp -d)
-if ! (
-  cd "$AVNAC_NODE_TMP" &&
-  curl -fSLO "https://nodejs.org/dist/v${AVNAC_NODE_VERSION}/${AVNAC_NODE_ARCHIVE}.tar.xz" &&
-  curl -fSLO "https://nodejs.org/dist/v${AVNAC_NODE_VERSION}/SHASUMS256.txt" &&
-  awk -v file="${AVNAC_NODE_ARCHIVE}.tar.xz" '$2 == file { print }' SHASUMS256.txt | sha256sum --check --strict && tar -xJf "${AVNAC_NODE_ARCHIVE}.tar.xz" -C /opt --no-same-owner
-); then
-  echo 'Node install failed.'
-  exit 1
-fi
-ln -sfn "/opt/${AVNAC_NODE_ARCHIVE}" /opt/avnac-node
-rm -rf -- "$AVNAC_NODE_TMP"
-/opt/avnac-node/bin/node --version
+(
+  set -euo pipefail
+  case "$(dpkg --print-architecture)" in
+    amd64) AVNAC_NODE_ARCH=x64 ;;
+    arm64) AVNAC_NODE_ARCH=arm64 ;;
+    *) echo 'Unsupported architecture'; exit 1 ;;
+  esac
+  AVNAC_NODE_TMP=$(mktemp -d)
+  trap 'rm -rf -- "$AVNAC_NODE_TMP"' EXIT
+  cd "$AVNAC_NODE_TMP"
+  curl -fSLo SHASUMS256.txt https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt
+  AVNAC_NODE_FILE=$(awk -v arch="$AVNAC_NODE_ARCH" \
+    '$2 ~ ("^node-v24\\.[0-9]+\\.[0-9]+-linux-" arch "\\.tar\\.xz$") {print $2}' SHASUMS256.txt)
+  test -n "$AVNAC_NODE_FILE"
+  AVNAC_NODE_RELEASE=${AVNAC_NODE_FILE%-linux-*}
+  AVNAC_NODE_RELEASE=${AVNAC_NODE_RELEASE#node-}
+  curl -fSLO "https://nodejs.org/dist/${AVNAC_NODE_RELEASE}/${AVNAC_NODE_FILE}"
+  awk -v file="$AVNAC_NODE_FILE" '$2 == file {print}' SHASUMS256.txt | sha256sum --check --strict
+  tar -xJf "$AVNAC_NODE_FILE" -C /opt --no-same-owner
+  ln -sfnT "/opt/${AVNAC_NODE_FILE%.tar.xz}" /opt/avnac-node
+  /opt/avnac-node/bin/node --version
+  env PATH=/opt/avnac-node/bin:/usr/bin:/bin /opt/avnac-node/bin/npm --version
+)
 ```
+
+Both version commands must succeed before continuing.
 
 ## 2. User and checkout
 
@@ -93,6 +99,8 @@ Use this password in `DATABASE_URL` in step 4. Keep PostgreSQL local with passwo
 
 ## 4. Configuration
 
+In `/etc/avnac/backend.env`, replace `avnac.example.com` with your public domain in both `BETTER_AUTH_URL` and `CORS_ORIGIN` (for example, `https://design.example.com`).
+
 ```bash
 install -o root -g root -m 0600 \
   /opt/avnac/app/deploy/debian/backend.env.example /etc/avnac/backend.env
@@ -131,7 +139,15 @@ install -o root -g root -m 0644 \
   /opt/avnac/app/deploy/debian/avnac.service /etc/systemd/system/avnac.service
 systemctl daemon-reload
 systemctl enable --now avnac
-curl --fail http://127.0.0.1:3001/health
+curl --fail --retry 15 --retry-connrefused --retry-delay 1 \
+  --retry-max-time 30 --connect-timeout 2 --max-time 5 http://127.0.0.1:3001/health
+```
+
+Wait for the health check to succeed before continuing. If it still fails:
+
+```bash
+systemctl status avnac --no-pager -l
+journalctl -u avnac -n 80 --no-pager
 ```
 
 Migrations and administrator creation run automatically on startup. The frontend uses `/api`; leave `VITE_PUBLIC_API_URL` unset. Any `VITE_*` values are public and require rebuilding the frontend.
@@ -191,7 +207,8 @@ rsync -a --delete --chown=root:root /opt/avnac/app/frontend/dist/ /var/www/avnac
 find /var/www/avnac -type d -exec chmod 0755 {} +
 find /var/www/avnac -type f -exec chmod 0644 {} +
 systemctl start avnac
-curl --fail http://127.0.0.1:3001/health
+curl --fail --retry 15 --retry-connrefused --retry-delay 1 \
+  --retry-max-time 30 --connect-timeout 2 --max-time 5 http://127.0.0.1:3001/health
 ```
 
 Recopy changed service templates and run `systemctl daemon-reload`. Validate Nginx changes with `nginx -t` before reloading.
