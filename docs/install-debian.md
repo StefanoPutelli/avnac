@@ -65,9 +65,19 @@ Install the helper once. It remains available in new shells and SSH sessions; us
 install -o root -g root -m 0755 \
   /opt/avnac/app/deploy/debian/avnac_npm /usr/local/bin/avnac_npm
 unset -f avnac_npm
+case ":$PATH:" in
+  *:/usr/local/bin:*) ;;
+  *)
+    export PATH="/usr/local/bin:$PATH"
+    grep -qxF 'export PATH="/usr/local/bin:$PATH"' /root/.bashrc ||
+      printf '\nexport PATH="/usr/local/bin:$PATH"\n' >> /root/.bashrc
+    ;;
+esac
+hash -r
+command -v avnac_npm
 ```
 
-`unset -f` removes the old temporary function from the current shell, if present.
+`unset -f` removes the old temporary function. If needed, the commands add `/usr/local/bin` to the current `PATH` and save the export in `/root/.bashrc` for future Bash sessions.
 
 ## 3. PostgreSQL
 
