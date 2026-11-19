@@ -75,6 +75,6 @@ const app = new Elysia({ adapter: node() })
   .use(mediaRoutes)
   .use(sponsorRoutes)
   .use(unsplashRoutes)
-  .listen(env.PORT)
+  .listen({ port: env.PORT, hostname: env.LISTEN_HOST })
 
 console.log(`Avnac backend running at ${app.server?.hostname}:${app.server?.port}`)
