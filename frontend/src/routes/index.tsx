@@ -6,7 +6,7 @@ import {
   TextBoldIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   motion,
   useInView,
@@ -24,10 +24,14 @@ import {
   useState,
 } from "react";
 import doodleSvgRaw from "../assets/doodle.svg?raw";
+import AccountMenu from "../components/account-menu";
 import NewCanvasDialog from "../components/new-canvas-dialog";
 import { idbListDocuments } from "../lib/avnac-editor-idb";
 
 export const Route = createFileRoute("/")({ component: Landing });
+
+const heroPrimaryButtonClass =
+  "bg-black text-white inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full border-0 px-10 py-3.5 text-base font-medium sm:min-h-14 sm:px-12 sm:py-4 sm:text-[1.0625rem]";
 
 type Sticker = {
   id: string;
@@ -539,34 +543,25 @@ function Landing() {
             <div className="flex flex-wrap items-center gap-4">
               <button
                 type="button"
-                className="bg-black text-white inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full border-0 px-10 py-3.5 text-base font-medium sm:min-h-14 sm:px-12 sm:py-4 sm:text-[1.0625rem]"
+                className={heroPrimaryButtonClass}
                 onClick={openEditor}
               >
                 {primaryCtaLabel}
               </button>
-              <Link
-                to="/studio"
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/[0.14] bg-white/85 px-8 py-3.5 text-base font-medium text-[var(--text)] no-underline backdrop-blur-sm hover:border-black/[0.22] hover:bg-white sm:min-h-14 sm:px-10 sm:py-4 sm:text-[1.0625rem]"
-              >
-                Avnac Studio
-              </Link>
+              <AccountMenu
+                signInButtonClassName={heroPrimaryButtonClass}
+                onChange={() => {
+                  void navigate({ to: "/files" });
+                }}
+              />
               <a
-                href="https://github.com/akinloluwami/avnac"
+                href="https://github.com/StefanoPutelli/avnac"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/[0.14] bg-white/70 px-8 py-3.5 text-base font-medium text-[var(--text)] no-underline backdrop-blur-sm hover:border-black/[0.22] hover:bg-white sm:min-h-14 sm:px-10 sm:py-4 sm:text-[1.0625rem]"
               >
                 GitHub
               </a>
-            </div>
-            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[var(--text-muted)]">
-              <span>Want to back the project?</span>
-              <Link
-                to="/sponsor"
-                className="inline-flex items-center rounded-full border border-black/[0.1] bg-white/70 px-4 py-2 font-medium text-[var(--text)] no-underline backdrop-blur-sm hover:border-black/[0.18] hover:bg-white"
-              >
-                Sponsor Avnac
-              </Link>
             </div>
           </div>
         </div>
@@ -764,7 +759,7 @@ function Landing() {
                 Open editor
               </button>
               <a
-                href="https://github.com/akinloluwami/avnac"
+                href="https://github.com/StefanoPutelli/avnac"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/[0.14] bg-white/72 px-8 py-3.5 text-base font-medium text-[var(--text)] no-underline backdrop-blur-sm hover:border-black/[0.22] hover:bg-white sm:min-h-14 sm:px-10 sm:py-4 sm:text-[1.0625rem]"

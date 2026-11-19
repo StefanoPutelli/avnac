@@ -7,9 +7,13 @@ import { FormDialog, inputClass, secondaryButtonClass, useAction } from './form-
 type AccountMenuProps = {
   /** Called after sign in / sign out, once local files reflect the new account. */
   onChange: () => void
+  signInButtonClassName?: string
 }
 
-export default function AccountMenu({ onChange }: AccountMenuProps) {
+export default function AccountMenu({
+  onChange,
+  signInButtonClassName = secondaryButtonClass,
+}: AccountMenuProps) {
   const user = useSyncExternalStore(subscribeCloudUser, getCloudUser)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const signInAction = useAction()
@@ -56,7 +60,7 @@ export default function AccountMenu({ onChange }: AccountMenuProps) {
     <>
       <button
         type="button"
-        className={secondaryButtonClass}
+        className={signInButtonClassName}
         onClick={() => {
           signInAction.setError(null)
           dialogRef.current?.showModal()
